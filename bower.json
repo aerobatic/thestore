@@ -23,6 +23,7 @@
     "angular-route": "~1.2.25",
     "angular-mocks": "~1.2.25",
     "angular-translate": "~2.3.0",
-    "angular-translate-loader-static-files": "~2.3.0"
+    "angular-translate-loader-static-files": "~2.3.0",
+    "angular-aerobatic": "*"
   }
 }

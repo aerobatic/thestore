@@ -11,12 +11,12 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-copy');
     grunt.loadNpmTasks('grunt-jsonmin');
     grunt.loadNpmTasks('grunt-contrib-concat-sourcemaps');
-    grunt.loadNpmTasks('grunt-processhtml');
     grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-aws');
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-connect');
     grunt.loadNpmTasks('grunt-angular-templates');
+    grunt.loadNpmTasks('grunt-aerobatic');
 
     //configure task
     grunt.initConfig({
@@ -33,13 +33,11 @@ module.exports = function(grunt) {
            },
            vendor: {
                dest: 'build/js/vendors.js',
-               src: ['src/vendor/angular-translate/angular-translate.min.js', 'src/vendor/angular-translate-loader-static-files/angular-translate-loader-static-files.min.js']
-           }
-       },
-
-       processhtml: {
-           build: {
-               files: {'build/index.html': ['src/index.html']}
+               src: [
+                'src/vendor/angular-translate/angular-translate.min.js',
+                'src/vendor/angular-translate-loader-static-files/angular-translate-loader-static-files.min.js',
+                'src/vendor/angular-aerobatic/angular-aerobatic.min.js'
+              ]
            }
        },
 
@@ -57,26 +55,6 @@ module.exports = function(grunt) {
                files: {
                    'build/css/thestore.min.css': ['<%= srccssFiles %>']
                }
-           }
-       },
-
-       htmlmin: {
-           options: {
-                removeComments: true,
-                collapseWhitespace: true,
-                collapseBooleanAttributes: true,
-                removeAttributeQuotes: true,
-                removeRedundantAttributes: true,
-                removeOptionalTags: true,
-                removeScriptTypeAttributes:     true,
-                removeStyleLinkTypeAttributes:  true,
-                removeEmptyAttributes:          true,
-                minifyJS: true,
-                minifyCSS: true,
-                minifyURLs: true
-           },
-           index: {
-               files: {'build/index.html': 'build/index.html'}
            }
        },
 
@@ -130,6 +108,22 @@ module.exports = function(grunt) {
            postbuild: ['<%= ngtemplates.storeApp.dest %>']
        },
 
+       aerobatic: {
+         options: {
+           cowboy: true,
+           root: 'src'
+         },
+         // These are the files that should be deployed to the cloud.
+         deploy: {
+           src: ['src/index.html', 'build/**/*.*']
+         },
+         sim: {
+           index: 'index.html',
+           port: 3000,
+           livereload: true
+         }
+       },
+
        aws: (grunt.file.exists('../aws.json')) ? grunt.file.readJSON('../aws.json') : null,
        s3: {
            options: {
@@ -170,26 +164,31 @@ module.exports = function(grunt) {
 
        watch: {
            js: {
-               files: ['Gruntfile.js', '<%= srcjsFiles %>', '<%= testjsFiles %>'],
-               tasks: ['lintjs']
+              files: ['Gruntfile.js', '<%= srcjsFiles %>', '<%= testjsFiles %>'],
+              tasks: ['lintjs']
+           },
+           templates: {
+             files: ['views/**/*.html'],
+             tasks: ['ngtemplates']
            },
            livereload: {
-               options: {
-                   livereload: '<%= connect.options.livereload %>'
-               },
-               files: [
-                   '<%= srcjsFiles %>',
-                   '<%= srchtmlFiles %>',
-                   '<%= srccssFiles %>'
-               ]
-           }
+              options: {
+                spawn: true,
+                livereload: true
+              },
+              files: [
+                '<%= srcjsFiles %>',
+                '<%= srchtmlFiles %>',
+                '<%= srccssFiles %>'
+              ]
+          }
        },
 
         ngtemplates:  {
             storeApp:        {
                 cwd: 'src',
-                src:      'views/**/*.html',
-                dest:     'src/js/templates.js',
+                src: 'views/**/*.html',
+                dest: 'src/js/templates.js',
                 options: {
                     htmlmin: {
                         removeComments: true,
@@ -206,15 +205,13 @@ module.exports = function(grunt) {
             }
         }
     });
-    
+
     grunt.registerTask('log-build', function() {
         this.requires('ngtemplates');
         this.requires('clean:build');
         this.requires('concat');
-        this.requires('processhtml');
         this.requires('jsonmin');
         this.requires('cssmin');
-        this.requires('htmlmin');
         this.requires('copy');
         this.requires('lintjs');
         this.requires('uglify');
@@ -223,7 +220,7 @@ module.exports = function(grunt) {
         fs.appendFileSync('build.log', message + '\n');
         grunt.log.writeln(message);
     });
-    
+
     // makes jshint optional
     grunt.registerTask('lintjs', function() {
         if (grunt.file.exists('.jshintrc')) {
@@ -240,15 +237,18 @@ module.exports = function(grunt) {
         grunt.log.writeln(message);
     });
 
-    grunt.registerTask('serve', 'start a connect web server', function () {
-        grunt.task.run([
-            'connect:livereload',
-            'watch'
-        ]);
-    });
+    // Instead of connect-serve, use the aerobatic:sim task
+    // grunt.registerTask('serve', 'start a connect web server', function () {
+    //     grunt.task.run([
+    //         'connect:livereload',
+    //         'watch'
+    //     ]);
+    // });
 
-    grunt.registerTask('build', ['ngtemplates', 'clean:build', 'concat', 'processhtml', 'jsonmin', 'cssmin', 'htmlmin', 'copy', 'lintjs', 'uglify', 'log-build', 'connect:build']);
+    grunt.registerTask('build', ['ngtemplates', 'clean:build', 'concat', 'jsonmin', 'cssmin', 'copy', 'lintjs', 'uglify', 'log-build']);
     grunt.registerTask('default', 'build');
-    grunt.registerTask('deployAWS', ['s3', 'log-deployAWS']);
+    grunt.registerTask('sim', ['ngtemplates', 'aerobatic:sim:sync', 'watch']);
+    grunt.registerTask('deploy', ['build', 'aerobatic:deploy']);
 
+    grunt.registerTask('deployAWS', ['s3', 'log-deployAWS']);
 };

@@ -1,15 +1,16 @@
 (function() {
     'use strict';
 
-    var storeApp = angular.module('storeApp', ['ngRoute', 'product', 'user', 'pascalprecht.translate']);
+    var storeApp = angular.module('storeApp', ['ngRoute', 'Aerobatic', 'product', 'user', 'pascalprecht.translate']);
     angular.module('product', ['pascalprecht.translate']);
     angular.module('user', []);
 
-
     //config routing and localization
-    storeApp.config(['$routeProvider', '$httpProvider', '$translateProvider',
+    storeApp.config(['$routeProvider', '$httpProvider', '$translateProvider', 'aerobaticProvider',
 
-        function($routeProvider, $httpProvider, $translateProvider) {
+        function($routeProvider, $httpProvider, $translateProvider, aerobaticProvider) {
+            // Specify that asset urls should be prefixed with 'build' in release mode
+            aerobaticProvider.config.releasePrefix = 'build';
 
             $routeProvider.
             when('/', {
@@ -37,7 +38,7 @@
 
             //language - localization
             $translateProvider.useStaticFilesLoader({
-                prefix: 'i18n/messages_',
+                prefix:  aerobaticProvider.config.assetUrl('/i18n/messages_'),
                 suffix: '.json'
             });
             var language = getCookie('language') || 'en';
@@ -46,18 +47,17 @@
     ]);
 
     //services
-    storeApp.factory('MetadataService', ['$http', function($http) {
+    storeApp.factory('MetadataService', ['$http', 'aerobatic', function($http, aerobatic) {
         return {
-            get: function() { return $http.get('storeData/metadata.json'); }
+            get: function() { return $http.get(aerobatic.assetUrl('/storeData/metadata.json')); }
         };
     }]);
 
-    storeApp.factory('SupportedLanguagesService', ['$http', function($http) {
+    storeApp.factory('SupportedLanguagesService', ['$http', 'aerobatic', function($http, aerobatic) {
         return {
-            getLanguages: function() { return $http.get('i18n/supported_languages.json'); }
+            getLanguages: function() { return $http.get(aerobatic.assetUrl('/i18n/supported_languages.json')); }
         };
     }]);
-
 
     //controller
     storeApp.controller('StoreController', ['$rootScope', '$translate', 'SupportedLanguagesService', 'MetadataService', function($rootScope, $translate, SupportedLanguagesService, MetadataService) {
@@ -128,7 +128,6 @@
         };
     });
 
-
     //utils
     var setCookie = function (name, value, expirationDays) {
         var d = new Date();
@@ -151,4 +150,3 @@
     };
 
 })();
-   
